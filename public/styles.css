@@ -1,8 +1,62 @@
+/* Global Styles */
 body {
-    font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
-    background-color: blanchedalmond;
+    background: dimgray;
+    font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS",
+        sans-serif;
+    margin: 0;
+    padding: 0;
 }
 
+#headers {
+    padding: 20px;
+    margin: auto;
+    width: 80%;
+    text-align: center;
+}
+
+#home-page {
+    margin: auto;
+    width: 80%;
+    text-align: center;
+    color: maroon;
+}
+
+/* Typography */
 h1 {
-    color: cadetblue;
+    color: yellow;
+}
+
+h2 {
+    color: lightskyblue;
+}
+
+/* Endpoint Link List */
+.api-info ul {
+    list-style: none;
+    padding: 0;
+}
+
+.api-info li {
+    margin-bottom: 10px;
+    background-color: cadetblue;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.api-info a {
+    color: white;
+    text-decoration: none;
+    font-size: 1.2em;
+}
+
+/* Preformatted JSON styling for /api/cards page (if needed) */
+pre.json-output {
+    background: #fff;
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    text-align: left;
+    overflow: auto;
+    max-width: 80%;
+    margin: auto;
 }
