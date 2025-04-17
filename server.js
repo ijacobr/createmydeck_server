@@ -3,9 +3,16 @@ const cors = require("cors");
 const Joi = require("joi");
 const multer = require("multer");
 const path = require("path");
+const fs = require("fs");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, "public", "uploads");
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // Enable CORS and JSON parsing
 app.use(cors());
@@ -17,7 +24,7 @@ app.use(express.static(path.join(__dirname, "public")));
 // Multer setup for deck image uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, "public/uploads"));
+        cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
         const ext = path.extname(file.originalname);
@@ -352,9 +359,7 @@ app.post("/api/decks", upload.single("image"), (req, res) => {
 app.post("/api/decks/:id/cards", (req, res) => {
     const deck = decks.find((d) => d.id === req.params.id);
     if (!deck) {
-        return res
-            .status(404)
-            .json({ success: false, message: "Deck not found" });
+        return res.status(404).json({ success: false, message: "Deck not found" });
     }
     const { error, value } = cardSchema.validate(req.body);
     if (error) {
@@ -368,9 +373,7 @@ app.post("/api/decks/:id/cards", (req, res) => {
 app.delete("/api/decks/:id", (req, res) => {
     const idx = decks.findIndex((d) => d.id === req.params.id);
     if (idx === -1) {
-        return res
-            .status(404)
-            .json({ success: false, message: "Deck not found" });
+        return res.status(404).json({ success: false, message: "Deck not found" });
     }
     decks.splice(idx, 1);
     res.json({ success: true });
