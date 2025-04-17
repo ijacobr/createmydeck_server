@@ -1,24 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>My Cards API</title>
-  <link rel="stylesheet" href="styles.css" />
-</head>
-<body>
-  <div id="home-page">
-    <div id="headers">
-      <h1>My Cards API</h1>
-    </div>
-    <div class="api-info">
-      <p>All Cards:</p>
-      <ul>
-        <li>
-          <a href="/api/cards" target="_blank">Get Cards</a>
-        </li>
-      </ul>
-    </div>
-  </div>
-</body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>My Cards API Explorer</title>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+    <body>
+        <header>
+            <h1>My Cards API</h1>
+        </header>
+
+        <div class="container">
+            <nav id="endpoints">
+                <h2>Endpoints</h2>
+                <ul>
+                    <li><a href="/api/cards" data-endpoint>/api/cards</a></li>
+                    <li><a href="/api/decks" data-endpoint>/api/decks</a></li>
+                </ul>
+            </nav>
+
+            <main>
+                <h2>Response</h2>
+                <pre id="output">Loading…</pre>
+            </main>
+        </div>
+
+        <script>
+            // Attach click handlers to fetch and pretty-print JSON
+            document.querySelectorAll("a[data-endpoint]").forEach((link) => {
+                link.addEventListener("click", (e) => {
+                    e.preventDefault();
+                    const url = link.getAttribute("href");
+                    document.getElementById("output").textContent = "Fetching…";
+                    fetch(url)
+                        .then((res) => res.json())
+                        .then((data) => {
+                            document.getElementById("output").textContent =
+                                JSON.stringify(data, null, 2);
+                        })
+                        .catch((err) => {
+                            document.getElementById("output").textContent =
+                                "Error: " + err;
+                        });
+                });
+            });
+            // On page load, auto-click first endpoint
+            window.addEventListener("DOMContentLoaded", () => {
+                document.querySelector("a[data-endpoint]").click();
+            });
+        </script>
+    </body>
 </html>

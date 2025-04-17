@@ -1,10 +1,32 @@
 const express = require("express");
+const cors = require("cors");
+const Joi = require("joi");
+const multer = require("multer");
+const path = require("path");
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
-// Serve static files from the "public" folder
-app.use(express.static("public"));
+// Enable CORS and JSON parsing
+app.use(cors());
+app.use(express.json());
 
+// Serve static files (CSS, HTML, images, uploads)
+app.use(express.static(path.join(__dirname, "public")));
+
+// Multer setup for deck image uploads
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, path.join(__dirname, "public/uploads"));
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname);
+        cb(null, Date.now() + ext);
+    },
+});
+const upload = multer({ storage });
+
+// In‑memory cards store (all 30 cards)
 const cards = [
     {
         id: "1",
@@ -278,26 +300,83 @@ const cards = [
     },
 ];
 
-// API route to provide cards data
-app.get("/api/cards", (req, res) => {
-    res.setHeader("Content-Type", "text/html");
-    const prettyJSON = JSON.stringify(cards, null, 2);
-    res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Cards API</title>
-        <link rel="stylesheet" href="/styles.css">
-      </head>
-      <body>
-        <pre class="json-output">${prettyJSON}</pre>
-      </body>
-      </html>
-    `);
+// In‑memory decks store
+const decks = [];
+
+// Joi schemas
+const deckSchema = Joi.object({
+    name: Joi.string().min(1).required(),
+    description: Joi.string().min(1).required(),
+});
+const cardSchema = Joi.object({
+    id: Joi.string().required(),
+    img: Joi.string().required(),
+    name: Joi.string().required(),
+    cost: Joi.string().required(),
+    attack: Joi.string().required(),
+    health: Joi.string().required(),
+    text: Joi.string().required(),
 });
 
-// Start the server
+// GET all cards
+app.get("/api/cards", (req, res) => {
+    res.json(cards);
+});
+
+// GET all decks
+app.get("/api/decks", (req, res) => {
+    res.json(decks);
+});
+
+// POST create a new deck (with optional image)
+app.post("/api/decks", upload.single("image"), (req, res) => {
+    const { error, value } = deckSchema.validate(req.body);
+    if (error) {
+        return res.status(400).json({ success: false, message: error.message });
+    }
+    const id = String(decks.length + 1);
+    const newDeck = {
+        id,
+        name: value.name,
+        description: value.description,
+        cards: [],
+    };
+    if (req.file) {
+        newDeck.image = `/uploads/${req.file.filename}`;
+    }
+    decks.push(newDeck);
+    res.status(201).json({ success: true, deck: newDeck });
+});
+
+// POST add a card to a deck
+app.post("/api/decks/:id/cards", (req, res) => {
+    const deck = decks.find((d) => d.id === req.params.id);
+    if (!deck) {
+        return res
+            .status(404)
+            .json({ success: false, message: "Deck not found" });
+    }
+    const { error, value } = cardSchema.validate(req.body);
+    if (error) {
+        return res.status(400).json({ success: false, message: error.message });
+    }
+    deck.cards.push(value);
+    res.json({ success: true, deck });
+});
+
+// DELETE a deck
+app.delete("/api/decks/:id", (req, res) => {
+    const idx = decks.findIndex((d) => d.id === req.params.id);
+    if (idx === -1) {
+        return res
+            .status(404)
+            .json({ success: false, message: "Deck not found" });
+    }
+    decks.splice(idx, 1);
+    res.json({ success: true });
+});
+
+// Start server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
