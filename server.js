@@ -1,3 +1,6 @@
+// server.js
+require("dotenv").config();
+
 const express = require("express");
 const cors = require("cors");
 const Joi = require("joi");
@@ -8,36 +11,33 @@ const mongoose = require("mongoose");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// ─── MongoDB Connection ────────────────────────────────────────────────────────
 mongoose
-    .connect(
-        "mongodb+srv://admin:12i9U3kgJbOL8kyl@cluster0.fxawkan.mongodb.net/",
-        { useNewUrlParser: true, useUnifiedTopology: true }
-    )
-    .then(() => console.log("Connected to MongoDB"))
-    .catch((err) => console.error("MongoDB connection error:", err));
+    .connect(process.env.MONGO_URI)
+    .then(() => console.log("✔️  MongoDB connected"))
+    .catch((err) => {
+        console.error("❌ MongoDB connection error:", err);
+        process.exit(1);
+    });
 
+// ─── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
 app.use(express.static(path.join(__dirname, "public")));
 
-// Multer setup for deck image uploads
+// ─── Multer for Deck Image Uploads ─────────────────────────────────────────────
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
         cb(null, path.join(__dirname, "public/uploads"));
     },
     filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname);
-        cb(null, `${Date.now()}${ext}`);
+        cb(null, `${Date.now()}${path.extname(file.originalname)}`);
     },
 });
 const upload = multer({ storage });
 
-// In-memory decks store
-const decks = [];
-
-// Joi schemas
+// ─── Joi Schemas ───────────────────────────────────────────────────────────────
 const deckSchema = Joi.object({
     name: Joi.string().min(1).required(),
     description: Joi.string().min(1).required(),
@@ -52,37 +52,39 @@ const cardSchema = Joi.object({
     text: Joi.string().required(),
 });
 
-// Mongoose Card model
-const mongooseCardSchema = new mongoose.Schema(
-    {
+// ─── Mongoose Card Model ───────────────────────────────────────────────────────
+const Card = mongoose.model(
+    "Card",
+    new mongoose.Schema({
+        id: String,
         img: String,
         name: String,
         cost: String,
         attack: String,
         health: String,
         text: String,
-    },
-    {
-        toJSON: { virtuals: true },
-        toObject: { virtuals: true },
-    }
+    })
 );
-mongooseCardSchema.virtual("id").get(function () {
-    return this._id.toString();
-});
-const Card = mongoose.model("Card", mongooseCardSchema);
 
-// GET all cards (from Mongo)
+// ─── In-Memory Decks Store ────────────────────────────────────────────────────
+const decks = [];
+
+// ─── Routes ────────────────────────────────────────────────────────────────────
+
+// GET all cards (from MongoDB)
 app.get("/api/cards", async (req, res) => {
     try {
         const cards = await Card.find();
         res.json(cards);
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        res.status(500).json({
+            success: false,
+            message: "Could not load cards",
+        });
     }
 });
 
-// GET all decks (in-memory)
+// GET all decks
 app.get("/api/decks", (req, res) => {
     res.json(decks);
 });
@@ -100,7 +102,9 @@ app.post("/api/decks", upload.single("image"), (req, res) => {
         description: value.description,
         cards: [],
     };
-    if (req.file) newDeck.image = `/uploads/${req.file.filename}`;
+    if (req.file) {
+        newDeck.image = `/uploads/${req.file.filename}`;
+    }
     decks.push(newDeck);
     res.status(201).json({ success: true, deck: newDeck });
 });
@@ -152,4 +156,5 @@ app.delete("/api/decks/:id", (req, res) => {
     res.json({ success: true });
 });
 
-app.listen(PORT, () => console.log(`Server listening on ${PORT}`));
+// ─── Start Server ─────────────────────────────────────────────────────────────
+app.listen(PORT, () => console.log(`🚀 Server listening on ${PORT}`));
