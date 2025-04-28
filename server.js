@@ -1,6 +1,5 @@
 // server.js
-require("dotenv").config();
-
+require("dotenv").config(); // ← make sure this is first
 const express = require("express");
 const cors = require("cors");
 const Joi = require("joi");
@@ -11,33 +10,57 @@ const mongoose = require("mongoose");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ─── MongoDB Connection ────────────────────────────────────────────────────────
+// —————————————————————————————————————————————
+// 1) Connect to MongoDB using your MONGO_URI
+// —————————————————————————————————————————————
 mongoose
-    .connect(process.env.MONGO_URI)
-    .then(() => console.log("✔️  MongoDB connected"))
-    .catch((err) => {
-        console.error("❌ MongoDB connection error:", err);
-        process.exit(1);
-    });
+    .connect(process.env.MONGO_URI, {
+        // these options are defaults in newer drivers
+        // useNewUrlParser: true,
+        // useUnifiedTopology: true
+    })
+    .then(() => console.log("🗄️  Connected to MongoDB"))
+    .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-// ─── Middleware ────────────────────────────────────────────────────────────────
+// —————————————————————————————————————————————
+// 2) Middleware
+// —————————————————————————————————————————————
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
-// ─── Multer for Deck Image Uploads ─────────────────────────────────────────────
+// —————————————————————————————————————————————
+// 3) Multer for deck-image uploads
+// —————————————————————————————————————————————
 const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, path.join(__dirname, "public/uploads"));
-    },
+    destination: (req, file, cb) =>
+        cb(null, path.join(__dirname, "public/uploads")),
     filename: (req, file, cb) => {
-        cb(null, `${Date.now()}${path.extname(file.originalname)}`);
+        const ext = path.extname(file.originalname);
+        cb(null, `${Date.now()}${ext}`);
     },
 });
 const upload = multer({ storage });
 
-// ─── Joi Schemas ───────────────────────────────────────────────────────────────
+// —————————————————————————————————————————————
+// 4) Mongoose Card schema & model
+// —————————————————————————————————————————————
+const mongooseCardSchema = new mongoose.Schema({
+    id: String,
+    img: String,
+    name: String,
+    cost: String,
+    attack: String,
+    health: String,
+    text: String,
+});
+const Card = mongoose.model("Card", mongooseCardSchema);
+
+// —————————————————————————————————————————————
+// 5) In-memory decks + Joi schemas
+// —————————————————————————————————————————————
+const decks = [];
 const deckSchema = Joi.object({
     name: Joi.string().min(1).required(),
     description: Joi.string().min(1).required(),
@@ -52,44 +75,30 @@ const cardSchema = Joi.object({
     text: Joi.string().required(),
 });
 
-// ─── Mongoose Card Model ───────────────────────────────────────────────────────
-const Card = mongoose.model(
-    "Card",
-    new mongoose.Schema({
-        id: String,
-        img: String,
-        name: String,
-        cost: String,
-        attack: String,
-        health: String,
-        text: String,
-    })
-);
+// —————————————————————————————————————————————
+// 6) Routes
+// —————————————————————————————————————————————
 
-// ─── In-Memory Decks Store ────────────────────────────────────────────────────
-const decks = [];
-
-// ─── Routes ────────────────────────────────────────────────────────────────────
-
-// GET all cards (from MongoDB)
+// GET /api/cards
 app.get("/api/cards", async (req, res) => {
     try {
         const cards = await Card.find();
-        res.json(cards);
+        return res.json(cards);
     } catch (err) {
-        res.status(500).json({
-            success: false,
-            message: "Could not load cards",
-        });
+        console.error("Error fetching cards from Mongo:", err);
+        // fallback: return [] or a static array if you want
+        return res
+            .status(500)
+            .json({ success: false, message: "Could not load cards" });
     }
 });
 
-// GET all decks
+// GET /api/decks
 app.get("/api/decks", (req, res) => {
     res.json(decks);
 });
 
-// POST create a new deck
+// POST /api/decks
 app.post("/api/decks", upload.single("image"), (req, res) => {
     const { error, value } = deckSchema.validate(req.body);
     if (error)
@@ -102,14 +111,12 @@ app.post("/api/decks", upload.single("image"), (req, res) => {
         description: value.description,
         cards: [],
     };
-    if (req.file) {
-        newDeck.image = `/uploads/${req.file.filename}`;
-    }
+    if (req.file) newDeck.image = `/uploads/${req.file.filename}`;
     decks.push(newDeck);
     res.status(201).json({ success: true, deck: newDeck });
 });
 
-// PUT update an existing deck
+// PUT /api/decks/:id
 app.put("/api/decks/:id", upload.single("image"), (req, res) => {
     const idx = decks.findIndex((d) => d.id === req.params.id);
     if (idx === -1)
@@ -128,7 +135,7 @@ app.put("/api/decks/:id", upload.single("image"), (req, res) => {
     res.json({ success: true, deck: decks[idx] });
 });
 
-// POST add a card to a deck
+// POST /api/decks/:id/cards
 app.post("/api/decks/:id/cards", (req, res) => {
     const deck = decks.find((d) => d.id === req.params.id);
     if (!deck)
@@ -144,17 +151,20 @@ app.post("/api/decks/:id/cards", (req, res) => {
     res.json({ success: true, deck });
 });
 
-// DELETE a deck
+// DELETE /api/decks/:id
 app.delete("/api/decks/:id", (req, res) => {
     const idx = decks.findIndex((d) => d.id === req.params.id);
     if (idx === -1)
         return res
             .status(404)
             .json({ success: false, message: "Deck not found" });
-
     decks.splice(idx, 1);
     res.json({ success: true });
 });
 
-// ─── Start Server ─────────────────────────────────────────────────────────────
-app.listen(PORT, () => console.log(`🚀 Server listening on ${PORT}`));
+// —————————————————————————————————————————————
+// 7) Start
+// —————————————————————————————————————————————
+app.listen(PORT, () => {
+    console.log(`🚀 Server listening on port ${PORT}`);
+});
