@@ -1,4 +1,3 @@
-// server.js
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -10,21 +9,14 @@ const mongoose = require("mongoose");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ——————————————————————————————
-// 1) Connect to MongoDB
-// ——————————————————————————————
 mongoose
     .connect(process.env.MONGO_URI, {
-        // these options are now defaults in newer drivers, but harmless:
         useNewUrlParser: true,
         useUnifiedTopology: true,
     })
     .then(() => console.log("MongoDB connected"))
     .catch((err) => console.error("MongoDB connection error:", err));
 
-// ——————————————————————————————
-// 2) Middleware
-// ——————————————————————————————
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -41,9 +33,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// ——————————————————————————————
-// 3) In-memory fallback cards (all 30)
-// ——————————————————————————————
 const inMemoryCards = [
     {
         id: "1",
@@ -317,9 +306,6 @@ const inMemoryCards = [
     },
 ];
 
-// ——————————————————————————————
-// 4) Mongoose Card Model
-// ——————————————————————————————
 const mongooseCardSchema = new mongoose.Schema({
     id: String,
     img: String,
@@ -331,9 +317,6 @@ const mongooseCardSchema = new mongoose.Schema({
 });
 const Card = mongoose.model("Card", mongooseCardSchema);
 
-// ——————————————————————————————
-// 5) Joi Schemas & In-memory Decks
-// ——————————————————————————————
 const deckSchema = Joi.object({
     name: Joi.string().min(1).required(),
     description: Joi.string().min(1).required(),
@@ -349,10 +332,6 @@ const cardJoiSchema = Joi.object({
 });
 
 const decks = [];
-
-// ——————————————————————————————
-// 6) Routes
-// ——————————————————————————————
 
 app.get("/api/cards", async (req, res) => {
     try {
@@ -422,7 +401,4 @@ app.delete("/api/decks/:id", (req, res) => {
     res.json({ success: true });
 });
 
-// ——————————————————————————————
-// 7) Start Server
-// ——————————————————————————————
 app.listen(PORT, () => console.log(`Server listening on port ${PORT}`));
